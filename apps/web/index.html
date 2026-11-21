@@ -22,8 +22,10 @@
     <link data-trunk rel="rust" data-bin="sudoku-web" data-bindgen-target="web" data-wasm-opt="0" />
     <style>
       html, body {
-        margin: 0; height: 100%; overflow: hidden;
-        position: fixed; inset: 0;
+        margin: 0; overflow: hidden;
+        /* --app-height is set by the script below (full screen in iOS standalone mode). */
+        position: fixed; top: 0; left: 0; right: 0;
+        height: var(--app-height, 100%);
         background: #16161b;
         overscroll-behavior: none;
         -webkit-user-select: none; user-select: none;
@@ -54,9 +56,26 @@
       body:has(canvas) #loading { display: none; }
     </style>
     <script>
-      // Publish the notch / home-indicator insets so the Rust UI can avoid them.
+      // Size the page and publish the notch / home-indicator insets for the Rust UI.
       (function () {
+        // iOS bug: in a home-screen app with viewport-fit=cover and a translucent status
+        // bar, content starts under the status bar but `100%`/`100vh`/`inset: 0` still
+        // measure the screen *minus* the status bar, leaving an empty strip at the bottom.
+        // In standalone mode, use the real screen height instead.
+        function appHeight() {
+          var h = window.innerHeight;
+          var standalone = window.navigator.standalone === true ||
+            (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+          if (standalone && window.screen) {
+            // iOS reports screen size in portrait regardless of orientation.
+            var portrait = !window.matchMedia || window.matchMedia("(orientation: portrait)").matches;
+            var long = Math.max(screen.width, screen.height), short = Math.min(screen.width, screen.height);
+            h = Math.max(h, portrait ? long : short);
+          }
+          document.documentElement.style.setProperty("--app-height", h + "px");
+        }
         function update() {
+          appHeight();
           var probe = document.getElementById("safe-probe");
           if (!probe) return;
           var cs = getComputedStyle(probe);
