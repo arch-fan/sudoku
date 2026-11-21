@@ -21,11 +21,19 @@
 
     <link data-trunk rel="rust" data-bin="sudoku-web" data-bindgen-target="web" data-wasm-opt="0" />
     <style>
+      /*
+       * Full-height layout that also works in the iOS home-screen app.
+       * With viewport-fit=cover + a translucent status bar, iOS standalone mode starts
+       * the page under the status bar but sizes `100%`/`100svh`/`100dvh` (and the
+       * layout viewport used by `position: fixed`) to the screen *minus* the status
+       * bar, leaving a dead/clipped strip at the bottom. So: no `position: fixed` on
+       * html/body, `100vh` by default and `100lvh` in standalone mode. A script below
+       * corrects any remaining shortfall via --app-height.
+       */
       html, body {
-        margin: 0; overflow: hidden;
-        /* --app-height is set by the script below (full screen in iOS standalone mode). */
-        position: fixed; top: 0; left: 0; right: 0;
-        height: var(--app-height, 100%);
+        margin: 0; padding: 0; overflow: hidden;
+        width: 100%;
+        height: 100vh;
         background: #16161b;
         overscroll-behavior: none;
         -webkit-user-select: none; user-select: none;
@@ -33,6 +41,12 @@
         -webkit-tap-highlight-color: transparent;
         -webkit-text-size-adjust: 100%;
       }
+      @media (display-mode: standalone) {
+        @supports (height: 100lvh) {
+          html, body { height: 100lvh; }
+        }
+      }
+      html.app-height-fix, html.app-height-fix body { height: var(--app-height); }
       canvas {
         display: block; width: 100%; height: 100%;
         touch-action: none; outline: none;
@@ -58,24 +72,27 @@
     <script>
       // Size the page and publish the notch / home-indicator insets for the Rust UI.
       (function () {
-        // iOS bug: in a home-screen app with viewport-fit=cover and a translucent status
-        // bar, content starts under the status bar but `100%`/`100vh`/`inset: 0` still
-        // measure the screen *minus* the status bar, leaving an empty strip at the bottom.
-        // In standalone mode, use the real screen height instead.
-        function appHeight() {
-          var h = window.innerHeight;
-          var standalone = window.navigator.standalone === true ||
+        var root = document.documentElement;
+        function standalone() {
+          return window.navigator.standalone === true ||
             (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
-          if (standalone && window.screen) {
-            // iOS reports screen size in portrait regardless of orientation.
-            var portrait = !window.matchMedia || window.matchMedia("(orientation: portrait)").matches;
-            var long = Math.max(screen.width, screen.height), short = Math.min(screen.width, screen.height);
-            h = Math.max(h, portrait ? long : short);
+        }
+        // Safety net for the iOS standalone viewport bug (see the CSS comment): if the
+        // page still ends above the bottom of the screen, size it to the screen.
+        function fixHeight() {
+          if (!standalone() || !window.screen) return;
+          root.classList.remove("app-height-fix");
+          var portrait = !window.matchMedia || window.matchMedia("(orientation: portrait)").matches;
+          // iOS reports the screen size in portrait regardless of orientation.
+          var full = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+          var current = root.getBoundingClientRect().height;
+          if (current + 1 < full) {
+            root.style.setProperty("--app-height", full + "px");
+            root.classList.add("app-height-fix");
           }
-          document.documentElement.style.setProperty("--app-height", h + "px");
         }
         function update() {
-          appHeight();
+          fixHeight();
           var probe = document.getElementById("safe-probe");
           if (!probe) return;
           var cs = getComputedStyle(probe);
@@ -83,9 +100,10 @@
           window.__safeBottom = parseFloat(cs.paddingBottom) || 0;
         }
         window.addEventListener("resize", update);
-        window.addEventListener("orientationchange", update);
+        window.addEventListener("orientationchange", function () { setTimeout(update, 300); });
         document.addEventListener("DOMContentLoaded", update);
-        update();
+        // iOS sometimes reports env(safe-area-inset-*) late on a cold start.
+        [0, 100, 500, 1000].forEach(function (ms) { setTimeout(update, ms); });
       })();
       if ("serviceWorker" in navigator && window.isSecureContext) {
         window.addEventListener("load", function () {
