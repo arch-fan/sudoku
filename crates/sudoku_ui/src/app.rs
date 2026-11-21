@@ -120,6 +120,7 @@ pub struct SudokuApp {
     pub flash_fx: [Fx<FlashFx>; 81],
     pub ghosts: [Ghost; 81],
     pub note_fx: [NoteFx; 81],
+    pub hl_track: [crate::board::HlTrack; 81],
     pub floating: Option<FloatingPoints>,
     /// Streak celebration in the middle of the screen: `(streak, generation)`.
     pub streak_burst: Option<(u32, u64)>,
@@ -189,6 +190,7 @@ impl SudokuApp {
             flash_fx: [Fx::default(); 81],
             ghosts: [Ghost::default(); 81],
             note_fx: [NoteFx::default(); 81],
+            hl_track: [Default::default(); 81],
             floating: None,
             streak_burst: None,
             score_from: 0,
@@ -753,6 +755,9 @@ impl Render for SudokuApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = *self.theme();
         let m = Metrics::compute(window);
+        if self.screen == Screen::Game {
+            self.track_highlights();
+        }
 
         let root = div()
             .id("root")

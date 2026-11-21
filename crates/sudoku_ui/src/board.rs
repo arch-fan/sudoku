@@ -11,8 +11,9 @@ use crate::app::{ContentFx, FlashFx, Metrics, SudokuApp};
 use crate::assets::{Icon, icon};
 use crate::theme::{Theme, alpha, mix};
 
-#[derive(Clone, Copy, PartialEq)]
-enum Highlight {
+#[derive(Clone, Copy, PartialEq, Default)]
+pub enum Highlight {
+    #[default]
     None,
     Related,
     Same,
@@ -20,7 +21,39 @@ enum Highlight {
     Wrong,
 }
 
+/// Per-cell highlight history, so a cell only animates when its highlight
+/// actually changes (squares that stay highlighted stay perfectly static).
+#[derive(Clone, Copy, Default)]
+pub struct HlTrack {
+    pub kind: Highlight,
+    pub from: Highlight,
+    pub since: u64,
+}
+
+fn highlight_color(theme: &Theme, hl: Highlight) -> gpui::Rgba {
+    match hl {
+        Highlight::None => theme.cell,
+        Highlight::Related => theme.cell_related,
+        Highlight::Same => theme.cell_same,
+        Highlight::Selected => theme.cell_selected,
+        Highlight::Wrong => theme.cell_wrong,
+    }
+}
+
 impl SudokuApp {
+    /// Records which cells changed highlight since the last frame.
+    pub fn track_highlights(&mut self) {
+        let mut generation = None;
+        for i in 0..81 {
+            let hl = self.highlight(i);
+            if self.hl_track[i].kind != hl {
+                let since = *generation.get_or_insert_with(|| self.next_gen());
+                let from = self.hl_track[i].kind;
+                self.hl_track[i] = HlTrack { kind: hl, from, since };
+            }
+        }
+    }
+
     pub fn render_board(&self, m: &Metrics, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = *self.theme();
         let radius = px(10.);
@@ -113,15 +146,22 @@ impl SudokuApp {
             .when(r == 8 && c == 8, |d| d.rounded_br(corner))
             .on_mouse_down(MouseButton::Left, cx.listener(move |this, _, _, cx| this.select(i, cx)));
 
-        // Related / same-digit highlight fades in when the selection moves.
+        // Related / same-digit highlight: cells that were already highlighted keep
+        // their exact color; only cells that just became highlighted blend in from
+        // whatever color they had before (never through a lighter flash).
         if matches!(hl, Highlight::Related | Highlight::Same) {
-            let color = if hl == Highlight::Same { theme.cell_same } else { theme.cell_related };
-            let from = theme.cell;
-            el = el.child(div().absolute().top_0().left_0().size(cell_px).with_animation(
-                anim::id("rel", i, self.selection_generation),
-                gpui::Animation::new(ms(200)).with_easing(anim::ease_out_cubic),
-                move |d, t| d.bg(mix(from, color, t)),
-            ));
+            let track = self.hl_track[i];
+            let color = highlight_color(&theme, hl);
+            if track.kind == hl && track.from != hl {
+                let from = highlight_color(&theme, track.from);
+                el = el.child(div().absolute().top_0().left_0().size(cell_px).bg(color).with_animation(
+                    anim::id("rel", i, track.since),
+                    gpui::Animation::new(ms(160)).with_easing(anim::ease_out_cubic),
+                    move |d, t| d.bg(mix(from, color, t)),
+                ));
+            } else {
+                el = el.child(div().absolute().top_0().left_0().size(cell_px).bg(color));
+            }
         }
 
         // Guided hint spotlight.

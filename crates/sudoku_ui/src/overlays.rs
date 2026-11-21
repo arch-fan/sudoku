@@ -402,24 +402,35 @@ pub fn secondary_button(
         .child(text)
 }
 
-/// Little animated 3×3 logo.
-pub fn logo(theme: &Theme, generation: u64, cell: f32) -> impl IntoElement {
+/// The 3×3 tile logo. Each tile lives in a fixed-size slot and is drawn
+/// absolutely inside it, so the entrance pop can never shift the layout.
+/// `animate`: play the entrance (only on first launch).
+pub fn logo(theme: &Theme, animate: bool, cell: f32) -> impl IntoElement {
     let colors = Difficulty::ALL.map(difficulty_color);
     let gap = (cell * 0.19).round();
     let empty = theme.surface_hover;
-    div().size(px(cell * 3.0 + gap * 2.0)).flex().flex_wrap().gap(px(gap)).children((0..9).map(move |k| {
-        let color = if k % 2 == 0 { colors[(k / 2) % 5] } else { empty };
-        div().size(px(cell)).rounded(px(cell * 0.25)).bg(color).with_animations(
-            anim::id("logo", k, generation),
-            vec![
-                gpui::Animation::new(ms(k as u64 * 60 + 1)),
-                gpui::Animation::new(ms(500)).with_easing(anim::ease_out_elastic),
-            ],
-            move |d, ph, t| {
-                let t = if ph == 0 { 0.0 } else { t };
-                let s = cell * t.max(0.0);
-                d.size(px(s)).m(px((cell - s) / 2.0))
-            },
-        )
+    let radius = cell * 0.25;
+    div().flex().flex_col().gap(px(gap)).children((0..3).map(move |r| {
+        div().flex().gap(px(gap)).children((0..3).map(move |c| {
+            let k = r * 3 + c;
+            let color = if k % 2 == 0 { colors[(k / 2) % 5] } else { empty };
+            let tile = div().absolute().top_0().left_0().size(px(cell)).rounded(px(radius)).bg(color);
+            let tile = if animate {
+                tile.with_animations(
+                    anim::id("logo", k, 0),
+                    delayed(k as u64 * 55, 420, anim::ease_out_back),
+                    move |d, ph, t| {
+                        let t = if ph == 0 { 0.0 } else { t.clamp(0.0, 1.08) };
+                        let s = cell * t;
+                        let off = (cell - s) / 2.0;
+                        d.top(px(off)).left(px(off)).size(px(s)).rounded(px(radius * t.max(0.01)))
+                    },
+                )
+                .into_any_element()
+            } else {
+                tile.into_any_element()
+            };
+            div().relative().size(px(cell)).flex_none().child(tile)
+        }))
     }))
 }

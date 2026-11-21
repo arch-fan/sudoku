@@ -230,7 +230,8 @@ impl SudokuApp {
             .child(
                 div()
                     .relative()
-                    .child(logo(&theme, generation, 30.))
+                    // Entrance only on the very first home render of the session.
+                    .child(logo(&theme, self.tab_generation == 1, 30.))
                     .with_animation(
                         anim::id("logo-float", 0, 0),
                         gpui::Animation::new(ms(3200)).repeat().with_easing(anim::ease_in_out_sine),
