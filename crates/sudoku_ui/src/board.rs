@@ -11,6 +11,17 @@ use crate::app::{ContentFx, FlashFx, Metrics, SudokuApp};
 use crate::assets::{Icon, icon};
 use crate::theme::{Theme, alpha, mix};
 
+/// Big digits fill ~2/3 of the cell (like the reference app), notes ~30%.
+const VALUE_SCALE: f32 = 0.66;
+const NOTE_SCALE: f32 = 0.30;
+/// Notes sit in a 3×3 grid inset from the cell edges so they don't touch the lines.
+const NOTE_INSET: f32 = 0.05;
+
+fn note_geometry(cs: f32) -> (f32, f32) {
+    let inset = cs * NOTE_INSET;
+    (inset, (cs - inset * 2.0) / 3.0)
+}
+
 #[derive(Clone, Copy, PartialEq, Default)]
 pub enum Highlight {
     #[default]
@@ -243,7 +254,7 @@ impl SudokuApp {
             .filter(|s| !matches!(s.hint.kind, sudoku_core::HintKind::Mistake { .. }))
             .map(|s| (s.hint.digit, s.generation));
         if let Some((digit, generation)) = preview {
-            let fs = cs * 0.56;
+            let fs = cs * VALUE_SCALE;
             let accent = theme.accent;
             el = el.child(
                 div()
@@ -267,12 +278,12 @@ impl SudokuApp {
         let ghost = self.ghosts[i];
         if ghost.digit != 0 && ghost.generation > self.board_generation {
             let (fs, color, pos) = if ghost.value {
-                (cs * 0.56, theme.user, None)
+                (cs * VALUE_SCALE, theme.user, None)
             } else {
                 let k = ghost.digit as usize - 1;
-                (cs * 0.27, theme.accent, Some(((k / 3) as f32, (k % 3) as f32)))
+                (cs * NOTE_SCALE, theme.accent, Some(((k / 3) as f32, (k % 3) as f32)))
             };
-            let note_size = cs / 3.0;
+            let (inset, note_size) = note_geometry(cs);
             el = el.child(
                 div()
                     .absolute()
@@ -282,7 +293,10 @@ impl SudokuApp {
                     .text_color(color)
                     .font_weight(FontWeight::SEMIBOLD)
                     .map(|d| match pos {
-                        Some((pr, pc)) => d.top(px(pr * note_size)).left(px(pc * note_size)).size(px(note_size)),
+                        Some((pr, pc)) => d
+                            .top(px(inset + pr * note_size))
+                            .left(px(inset + pc * note_size))
+                            .size(px(note_size)),
                         None => d.top_0().left_0().size(px(cs)),
                     })
                     .child(ghost.digit.to_string())
@@ -332,7 +346,7 @@ impl SudokuApp {
     fn render_value(&self, i: usize, cs: f32, theme: &Theme, hl: Highlight) -> AnyElement {
         let game = &self.game;
         let cell = game.cell(i);
-        let fs = cs * 0.56;
+        let fs = cs * VALUE_SCALE;
         let color = if cell.given {
             theme.given
         } else if game.is_wrong(i) {
@@ -391,19 +405,27 @@ impl SudokuApp {
 
     fn render_notes(&self, i: usize, cs: f32, theme: &Theme) -> impl IntoElement {
         let notes = self.game.cell(i).notes;
-        let note_size = cs / 3.0;
-        let fs = cs * 0.27;
+        let (inset, note_size) = note_geometry(cs);
+        let fs = cs * NOTE_SCALE;
         let sel_digit = self.selected.map(|s| self.game.cell(s).value).unwrap_or(0);
         let nfx = self.note_fx[i];
         let note_color = theme.note;
         let accent = theme.accent;
 
-        div().absolute().top_0().left_0().size(px(cs)).flex().flex_wrap().children((1..=9u8).map(
+        // Each note is placed absolutely in its 3×3 slot (no flex wrapping, which
+        // can drop to 2 per row when fractional sizes round up).
+        div().absolute().top_0().left_0().size(px(cs)).children((1..=9u8).filter(move |&d| notes.contains(d)).map(
             move |d| {
-                let slot = div().size(px(note_size)).flex().items_center().justify_center();
-                if !notes.contains(d) {
-                    return slot.into_any_element();
-                }
+                let k = (d - 1) as f32;
+                let (row, col) = ((k / 3.0).floor(), k % 3.0);
+                let slot = div()
+                    .absolute()
+                    .top(px(inset + row * note_size))
+                    .left(px(inset + col * note_size))
+                    .size(px(note_size))
+                    .flex()
+                    .items_center()
+                    .justify_center();
                 let highlighted = d == sel_digit;
                 let label = div()
                     .text_size(px(fs))
@@ -422,7 +444,7 @@ impl SudokuApp {
                 } else {
                     label.into_any_element()
                 };
-                slot.child(label).into_any_element()
+                slot.child(label)
             },
         ))
     }

@@ -729,13 +729,13 @@ impl Metrics {
         let (safe_top, safe_bottom) = platform::safe_area();
         let top = if cfg!(target_os = "macos") { 30.0 } else { (safe_top + 4.0).max(10.0) };
         let bottom = (safe_bottom + 4.0).max(12.0);
-        let width = f32::from(viewport.width) - 24.0;
+        let width = f32::from(viewport.width) - 16.0;
         let actions_h = 76.0;
         // Number pad keys: at least ~44pt wide (full 1/9 column) and ~58pt tall,
         // the comfortable touch-target size on phones.
         let pad = |board: f32| {
             let key_w = board / 9.0;
-            ((key_w * 0.74).clamp(26.0, 44.0), (key_w * 1.5).clamp(58.0, 78.0))
+            ((key_w * 0.92).clamp(30.0, 54.0), (key_w * 1.45).clamp(58.0, 80.0))
         };
         let fixed = top + bottom + 48.0 + 64.0 + actions_h + 4.0 * 8.0;
         let (_, pad_h_guess) = pad(width.min(640.0));

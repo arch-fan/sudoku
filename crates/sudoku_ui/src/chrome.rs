@@ -322,16 +322,15 @@ impl SudokuApp {
             let done = remaining == 0;
             let generation = self.pad_generation[d as usize];
             let color = if notes { theme.text_muted } else { theme.accent };
-            let tile_bg = theme.surface;
-            let pulse = alpha(theme.accent, 0.35);
+            let pulse = alpha(theme.accent, 0.22);
+            let clear = alpha(theme.accent, 0.0);
 
-            // The whole 1/9 column is the touch target; the rounded tile inside is
-            // just the visual key (no hover style: on touch screens it sticks).
+            // The whole 1/9 column is the touch target. No background or hover
+            // style (hover sticks on touch screens): a press shows a brief glow.
             div()
                 .id(("pad", d as usize))
                 .w(px(key_w))
                 .h_full()
-                .px(px((key_w * 0.06).clamp(1.5, 3.0)))
                 .flex_none()
                 .when(!done, |el| {
                     el.cursor_pointer().on_mouse_down(
@@ -345,20 +344,18 @@ impl SudokuApp {
                 .child(
                     div()
                         .size_full()
-                        .rounded(px(12.))
-                        .bg(tile_bg)
+                        .rounded(px(14.))
                         .flex()
                         .flex_col()
                         .items_center()
                         .justify_center()
-                        .gap(px(2.))
                         .child(
                             div()
-                                .h(px(fs * 1.1))
+                                .h(px(fs * 1.12))
                                 .flex()
                                 .items_center()
                                 .text_size(px(fs))
-                                .font_weight(if notes { FontWeight::NORMAL } else { FontWeight::MEDIUM })
+                                .font_weight(FontWeight::NORMAL)
                                 .text_color(color)
                                 .child(d.to_string()),
                         )
@@ -366,19 +363,18 @@ impl SudokuApp {
                             div()
                                 .text_size(px(11.))
                                 .line_height(px(12.))
-                                .text_color(alpha(theme.text_muted, 0.8))
+                                .text_color(alpha(theme.text_muted, 0.7))
                                 .child(remaining.to_string()),
                         )
                         .with_animation(
                             anim::id("pad", d, generation),
-                            gpui::Animation::new(ms(if done { 450 } else { 280 })),
+                            gpui::Animation::new(ms(if done { 450 } else { 300 })),
                             move |el, t| {
                                 if done {
-                                    // Digit finished: the key fades away.
+                                    // Digit finished: it fades away.
                                     el.opacity(1.0 - anim::ease_out_cubic(t))
                                 } else {
-                                    // Press feedback: quick accent pulse + tiny dip.
-                                    el.bg(mix(pulse, tile_bg, anim::ease_out_cubic(t)))
+                                    el.bg(mix(pulse, clear, anim::ease_out_cubic(t)))
                                         .relative()
                                         .top(px(anim::bump(t) * 2.0))
                                 }
