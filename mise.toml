@@ -26,6 +26,10 @@ description = "Optimized static web build into apps/web/dist"
 dir = "apps/web"
 run = "trunk build --release --cargo-profile web-release"
 
+[tasks.docker]
+description = "Build the production web image and serve it on http://localhost:8080"
+run = "docker build -t sudoku-web . && docker run --rm -p 8080:8080 sudoku-web"
+
 [tasks.release]
 description = "Optimized native build"
 run = "cargo build -p sudoku_desktop --release"

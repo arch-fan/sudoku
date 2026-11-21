@@ -58,6 +58,24 @@ All URLs are relative, so the same `dist/` works on any domain or sub-path, e.g.
 so the recommended setup is one canonical domain (`sudoku.archfan.com`) and a 301 redirect
 from the other.
 
+## Deploy with Docker
+
+The root `Dockerfile` builds the web bundle (pinned nightly + Trunk, assets pre-compressed with
+brotli/gzip) and serves it with [static-web-server](https://static-web-server.net) **v3**
+(`3.0.0-beta.3`, scratch-based image, config in `sws.toml`):
+
+```bash
+docker build -t sudoku-web .
+```
+
+```bash
+docker run --rm -p 8080:8080 sudoku-web
+```
+
+Put it behind your HTTPS reverse proxy / platform (Caddy, Traefik, Coolify, Fly…) on
+`sudoku.archfan.com`. Health checks: `GET /livez` (liveness) and `GET /readyz` (readiness). For an x86 server from an Apple Silicon Mac,
+add `--platform linux/amd64` (only the tiny server layer changes; the wasm is built natively).
+
 ## Saved data
 
 No server. Settings, statistics/records and the game in progress are saved as JSON:
@@ -138,6 +156,11 @@ GPUI at all (CLI, server, tests, another UI toolkit).
   `build-std`. The `web-dev` profile uses LLVM because Cranelift can't target wasm.
 
 ## Notes
+
+* macOS text needs gpui's `font-kit` feature (enabled in `apps/desktop`); without it gpui
+  silently uses a no-op text system and draws no text. Check with
+  `cargo run -p sudoku_desktop -- --check-text` (prints `TEXT OK`). On nightly, font-kit's
+  `pathfinder_simd` is forced to its scalar path (`pf-no-simd`) to avoid a rustc crash.
 
 * GPUI is pinned to a zed git revision in the root `Cargo.toml`, together with the
   `[patch.crates-io]` entries zed itself uses. To upgrade, bump `rev` and run `cargo update`.

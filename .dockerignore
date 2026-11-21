@@ -1,0 +1,7 @@
+target
+apps/web/dist
+.git
+.claude
+.DS_Store
+**/*.md
+!README.md

@@ -1,0 +1,32 @@
+# static-web-server v3 config for the Sudoku PWA (see Dockerfile).
+
+[general]
+root = "/public"
+port = 8080
+health = true                 # GET /livez + /readyz → 200 (liveness / readiness probes)
+log-format = "json"
+compression = true            # dynamic gzip/brotli/zstd for anything not pre-compressed
+compression-static = true     # serve the .br/.gz files generated at build time
+cache-control-headers = true  # v3 defaults: HTML/JSON no-cache, static assets 1 year
+security-headers = true
+
+[advanced]
+
+# Trunk content-hashes the .wasm/.js filenames, so they can be cached forever.
+[[advanced.headers]]
+source = "/*.wasm"
+headers = { Cache-Control = "public, max-age=31536000, immutable" }
+
+# The service worker and manifest must always be revalidated so updates roll out.
+[[advanced.headers]]
+source = "/sw.js"
+headers = { Cache-Control = "no-cache" }
+
+[[advanced.headers]]
+source = "/manifest.webmanifest"
+headers = { Cache-Control = "no-cache", Content-Type = "application/manifest+json" }
+
+# Icons aren't hashed: cache for a day.
+[[advanced.headers]]
+source = "/icons/*"
+headers = { Cache-Control = "public, max-age=86400" }
