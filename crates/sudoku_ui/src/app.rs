@@ -730,11 +730,17 @@ impl Metrics {
         let top = if cfg!(target_os = "macos") { 30.0 } else { (safe_top + 4.0).max(10.0) };
         let bottom = (safe_bottom + 4.0).max(12.0);
         let width = f32::from(viewport.width) - 24.0;
-        let height = f32::from(viewport.height) - top - bottom - 318.0;
-        let board = width.min(height).clamp(260.0, 640.0);
-        let pad_font = (board / 9.0 * 0.78).clamp(28.0, 52.0);
-        let pad_h = pad_font * 1.7;
         let actions_h = 76.0;
+        // Number pad keys: at least ~44pt wide (full 1/9 column) and ~58pt tall,
+        // the comfortable touch-target size on phones.
+        let pad = |board: f32| {
+            let key_w = board / 9.0;
+            ((key_w * 0.74).clamp(26.0, 44.0), (key_w * 1.5).clamp(58.0, 78.0))
+        };
+        let fixed = top + bottom + 48.0 + 64.0 + actions_h + 4.0 * 8.0;
+        let (_, pad_h_guess) = pad(width.min(640.0));
+        let board = width.min(f32::from(viewport.height) - fixed - pad_h_guess).clamp(260.0, 640.0);
+        let (pad_font, pad_h) = pad(board);
         let used = top + bottom + 48.0 + 64.0 + actions_h + pad_h + board;
         let gap = ((f32::from(viewport.height) - used) / 5.0).clamp(8.0, 34.0);
         Metrics {

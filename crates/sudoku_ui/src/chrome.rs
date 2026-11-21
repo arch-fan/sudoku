@@ -11,7 +11,7 @@ use gpui::{
 use crate::anim::{self, ms};
 use crate::app::{Metrics, SudokuApp, Tab};
 use crate::assets::{Icon, icon};
-use crate::theme::{Theme, alpha, difficulty_color};
+use crate::theme::{Theme, alpha, difficulty_color, mix};
 
 pub fn format_score(n: u32) -> String {
     let s = n.to_string();
@@ -322,18 +322,19 @@ impl SudokuApp {
             let done = remaining == 0;
             let generation = self.pad_generation[d as usize];
             let color = if notes { theme.text_muted } else { theme.accent };
+            let tile_bg = theme.surface;
+            let pulse = alpha(theme.accent, 0.35);
 
+            // The whole 1/9 column is the touch target; the rounded tile inside is
+            // just the visual key (no hover style: on touch screens it sticks).
             div()
                 .id(("pad", d as usize))
                 .w(px(key_w))
                 .h_full()
-                .flex()
-                .flex_col()
-                .items_center()
-                .justify_center()
-                .rounded_lg()
+                .px(px((key_w * 0.06).clamp(1.5, 3.0)))
+                .flex_none()
                 .when(!done, |el| {
-                    el.cursor_pointer().hover(|s| s.bg(theme.surface)).on_mouse_down(
+                    el.cursor_pointer().on_mouse_down(
                         MouseButton::Left,
                         cx.listener(move |this, _, _, cx| {
                             cx.stop_propagation();
@@ -342,31 +343,47 @@ impl SudokuApp {
                     )
                 })
                 .child(
-                    div().h(px(fs * 1.15)).flex().items_center().child(
-                        div()
-                            .text_size(px(fs))
-                            .font_weight(if notes { FontWeight::NORMAL } else { FontWeight::MEDIUM })
-                            .text_color(color)
-                            .child(d.to_string())
-                            .with_animation(
-                                anim::id("pad", d, generation),
-                                gpui::Animation::new(ms(if done { 450 } else { 300 })),
-                                move |el, t| {
-                                    if done {
-                                        let k = 1.0 - anim::ease_out_cubic(t);
-                                        el.text_size(px(fs * (0.4 + 0.6 * k) + anim::bump(t) * 8.)).opacity(k)
-                                    } else {
-                                        el.text_size(px(fs - anim::bump(t) * fs * 0.22))
-                                    }
-                                },
-                            ),
-                    ),
-                )
-                .child(
                     div()
-                        .text_size(px(11.))
-                        .text_color(alpha(theme.text_muted, if done { 0.0 } else { 0.8 }))
-                        .child(remaining.to_string()),
+                        .size_full()
+                        .rounded(px(12.))
+                        .bg(tile_bg)
+                        .flex()
+                        .flex_col()
+                        .items_center()
+                        .justify_center()
+                        .gap(px(2.))
+                        .child(
+                            div()
+                                .h(px(fs * 1.1))
+                                .flex()
+                                .items_center()
+                                .text_size(px(fs))
+                                .font_weight(if notes { FontWeight::NORMAL } else { FontWeight::MEDIUM })
+                                .text_color(color)
+                                .child(d.to_string()),
+                        )
+                        .child(
+                            div()
+                                .text_size(px(11.))
+                                .line_height(px(12.))
+                                .text_color(alpha(theme.text_muted, 0.8))
+                                .child(remaining.to_string()),
+                        )
+                        .with_animation(
+                            anim::id("pad", d, generation),
+                            gpui::Animation::new(ms(if done { 450 } else { 280 })),
+                            move |el, t| {
+                                if done {
+                                    // Digit finished: the key fades away.
+                                    el.opacity(1.0 - anim::ease_out_cubic(t))
+                                } else {
+                                    // Press feedback: quick accent pulse + tiny dip.
+                                    el.bg(mix(pulse, tile_bg, anim::ease_out_cubic(t)))
+                                        .relative()
+                                        .top(px(anim::bump(t) * 2.0))
+                                }
+                            },
+                        ),
                 )
         }))
     }
