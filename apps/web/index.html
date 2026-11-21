@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <title>Sudoku</title>
+    <meta name="description" content="Sudoku con pistas guiadas, récords y animaciones suaves. Funciona sin conexión." />
+
+    <!-- Installable web app (iOS "Add to Home Screen", Android, desktop) -->
+    <link data-trunk rel="copy-file" href="manifest.webmanifest" />
+    <link data-trunk rel="copy-file" href="sw.js" />
+    <link data-trunk rel="copy-dir" href="icons" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="theme-color" content="#16161b" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Sudoku" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" href="icons/icon-192.png" />
+
+    <link data-trunk rel="rust" data-bin="sudoku-web" data-bindgen-target="web" data-wasm-opt="0" />
+    <style>
+      html, body {
+        margin: 0; height: 100%; overflow: hidden;
+        position: fixed; inset: 0;
+        background: #16161b;
+        overscroll-behavior: none;
+        -webkit-user-select: none; user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-text-size-adjust: 100%;
+      }
+      canvas {
+        display: block; width: 100%; height: 100%;
+        touch-action: none; outline: none;
+      }
+      #safe-probe {
+        position: fixed; top: 0; left: 0; width: 0; height: 0; visibility: hidden; pointer-events: none;
+        padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);
+      }
+      #loading {
+        position: fixed; inset: 0; display: grid; place-items: center;
+        pointer-events: none;
+      }
+      #loading div {
+        width: 54px; height: 54px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+      }
+      #loading span { border-radius: 4px; background: #2d2d37; animation: pulse 1.1s ease-in-out infinite; }
+      #loading span:nth-child(odd) { background: #5c8ee6; }
+      #loading span:nth-child(3n+2) { animation-delay: .15s; }
+      #loading span:nth-child(3n) { animation-delay: .3s; }
+      @keyframes pulse { 50% { opacity: .3; transform: scale(.8); } }
+      body:has(canvas) #loading { display: none; }
+    </style>
+    <script>
+      // Publish the notch / home-indicator insets so the Rust UI can avoid them.
+      (function () {
+        function update() {
+          var probe = document.getElementById("safe-probe");
+          if (!probe) return;
+          var cs = getComputedStyle(probe);
+          window.__safeTop = parseFloat(cs.paddingTop) || 0;
+          window.__safeBottom = parseFloat(cs.paddingBottom) || 0;
+        }
+        window.addEventListener("resize", update);
+        window.addEventListener("orientationchange", update);
+        document.addEventListener("DOMContentLoaded", update);
+        update();
+      })();
+      if ("serviceWorker" in navigator && window.isSecureContext) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register("./sw.js").catch(function (e) { console.warn("SW registration failed", e); });
+        });
+      }
+    </script>
+  </head>
+  <body>
+    <div id="safe-probe"></div>
+    <div id="loading"><div><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div></div>
+  </body>
+</html>

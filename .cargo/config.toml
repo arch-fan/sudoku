@@ -1,0 +1,18 @@
+[build]
+# share-generics: fewer duplicate monomorphizations; threads: parallel rustc frontend.
+rustflags = ["-Zshare-generics=y", "-Zthreads=8"]
+
+[target.aarch64-apple-darwin]
+# Our crates build with Cranelift while dependencies use LLVM. Cranelift does not
+# record the `fp-armv8`/`neon` features, which rustc flags as a potential ABI
+# mismatch; both backends use the same AAPCS64 hard-float ABI, so this is safe.
+rustflags = ["-Zshare-generics=y", "-Zthreads=8", "-Cunsafe-allow-abi-mismatch=target-feature"]
+
+[target.wasm32-unknown-unknown]
+rustflags = ["-Zthreads=8"]
+
+[env]
+MACOSX_DEPLOYMENT_TARGET = "12.0"
+
+[alias]
+desktop = "run -p sudoku_desktop"

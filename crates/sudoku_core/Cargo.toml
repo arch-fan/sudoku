@@ -1,0 +1,17 @@
+[package]
+name = "sudoku_core"
+description = "Platform-agnostic Sudoku engine: generator, solver, grading, hints and game state."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[features]
+default = []
+# Serialize games (for save files). Off by default so the engine stays dependency-free.
+serde = ["dep:serde"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"], optional = true }
+
+[dev-dependencies]
+serde_json = "1"

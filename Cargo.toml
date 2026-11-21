@@ -1,0 +1,79 @@
+cargo-features = ["codegen-backend"]
+
+[workspace]
+resolver = "3"
+members = ["crates/sudoku_core", "crates/sudoku_ui", "apps/desktop", "apps/web"]
+default-members = ["apps/desktop"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace.dependencies]
+sudoku_core = { path = "crates/sudoku_core" }
+sudoku_ui = { path = "crates/sudoku_ui" }
+# gpui is pinned to a zed revision that ships the web (wasm/WebGPU) platform.
+gpui = { git = "https://github.com/zed-industries/zed", rev = "2f808b3c2de049ecfdbad0fdb26763cebfcaa3b4" }
+gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "2f808b3c2de049ecfdbad0fdb26763cebfcaa3b4", default-features = false }
+web-time = "1"
+wasm-bindgen = "0.2"
+
+# Mirrors the patches zed's own workspace applies to gpui's dependencies.
+[patch.crates-io]
+async-task = { git = "https://github.com/smol-rs/async-task", rev = "41fd3359c75e221bd8b187a8ee361aa309c1714c" }
+async-process = { git = "https://github.com/zed-industries/async-process.git", rev = "0b6d6713570af61806e1e5cb40e0f757cb93fd9d" }
+
+# ---------------------------------------------------------------------------
+# Profiles
+#
+# dev:        fastest edit→run loop on macOS. Our crates use Cranelift
+#             (no LLVM), dependencies are optimized once with LLVM so the
+#             UI animates smoothly even in debug builds.
+# web-dev:    same idea for wasm (Cranelift can't target wasm → LLVM).
+# release / web-release: optimized builds.
+# ---------------------------------------------------------------------------
+[profile.dev]
+codegen-backend = "cranelift"
+debug = "line-tables-only"
+split-debuginfo = "unpacked"
+incremental = true
+
+[profile.dev.package."*"]
+codegen-backend = "llvm"
+opt-level = 2
+debug = false
+
+[profile.dev.package.sudoku_core]
+codegen-backend = "llvm"
+opt-level = 3
+
+[profile.dev.build-override]
+codegen-backend = "llvm"
+opt-level = 0
+debug = false
+
+[profile.web-dev]
+inherits = "dev"
+codegen-backend = "llvm"
+opt-level = 1
+
+[profile.web-dev.package."*"]
+codegen-backend = "llvm"
+opt-level = 2
+debug = false
+
+[profile.release]
+lto = "thin"
+codegen-units = 16
+strip = true
+
+[profile.web-release]
+inherits = "release"
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+
+[profile.web-dev.package.sudoku_core]
+opt-level = 3

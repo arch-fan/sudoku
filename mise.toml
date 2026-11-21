@@ -1,0 +1,35 @@
+[tools]
+rust = { version = "nightly-2026-11-21", components = "rustfmt,clippy,rust-src,rustc-codegen-cranelift", targets = "wasm32-unknown-unknown" }
+"github:trunk-rs/trunk" = "latest"
+watchexec = "latest"
+
+[tasks.dev]
+description = "Run the native macOS app (Cranelift dev profile)"
+run = "cargo run -p sudoku_desktop"
+
+[tasks.watch]
+description = "Rebuild + relaunch the macOS app on every change"
+run = "watchexec --restart --exts rs,svg,ttf --watch crates --watch apps/desktop -- cargo run -p sudoku_desktop"
+
+[tasks.web]
+description = "Serve the web build with hot reload at http://127.0.0.1:8080"
+dir = "apps/web"
+run = "trunk serve --cargo-profile web-dev"
+
+[tasks."web:lan"]
+description = "Serve the web build on your local network (open it from your phone)"
+dir = "apps/web"
+run = "trunk serve --cargo-profile web-dev --address 0.0.0.0"
+
+[tasks."web:release"]
+description = "Optimized static web build into apps/web/dist"
+dir = "apps/web"
+run = "trunk build --release --cargo-profile web-release"
+
+[tasks.release]
+description = "Optimized native build"
+run = "cargo build -p sudoku_desktop --release"
+
+[tasks.test]
+description = "Run the core logic tests"
+run = "cargo test -p sudoku_core"
