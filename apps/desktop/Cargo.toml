@@ -11,4 +11,13 @@ path = "src/main.rs"
 [dependencies]
 sudoku_ui.workspace = true
 # runtime_shaders: compile Metal shaders at launch → no Metal toolchain needed at build time.
-gpui_platform = { workspace = true, features = ["runtime_shaders"] }
+# font-kit: the CoreText text system. Without it gpui falls back to a no-op text
+# system on macOS and renders no text at all.
+gpui_platform = { workspace = true, features = ["runtime_shaders", "font-kit"] }
+env_logger = { version = "0.11", default-features = false, features = ["auto-color"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# font-kit → pathfinder_simd detects a nightly compiler and switches to experimental
+# ARM SIMD intrinsics that crash current nightly rustc (ICE in abi_check). Force its
+# portable scalar path instead; glyph rasterization doesn't need SIMD.
+pathfinder_simd = { version = "0.5", features = ["pf-no-simd"] }
